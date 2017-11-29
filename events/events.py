@@ -19,11 +19,13 @@
 #   Daniel Izquierdo Cortazar <dizquierdo@bitergia.com>
 #
 
+from datetime import datetime as dt
 from dateutil import parser
 
-from datetime import datetime
-
 import pandas
+
+from grimoire_elk.elk.sortinghat import SortingHat
+
 
 class Events(object):
     """ Class that 'eventizes' information for a given dataset.
@@ -32,6 +34,140 @@ class Events(object):
     of a pre-formatted item. This is expected to help in later steps
     during the visualization platform.
     """
+
+    META_TIMESTAMP = "metadata__timestamp"
+    META_UPDATED_ON = "metadata__updated_on"
+    META_ENRICHED_ON = "metadata__enriched_on"
+
+    GRIMOIRE_CREATION_DATE = "grimoire_creation_date"
+    PROJECT = "project"
+    PROJECT_1 = "project_1"
+
+    SH_AUTHOR_ID = "author_id"
+    SH_AUTHOR_ORG_NAME = "author_org_name"
+    SH_AUTHOR_NAME = "author_name"
+    SH_AUTHOR_UUID = "author_uuid"
+    SH_AUTHOR_DOMAIN = "author_domain"
+    SH_AUTHOR_USER_NAME = "author_user_name"
+    SH_AUTHOR_BOT = "author_bot"
+
+    UNKNOWN = 'Unknown'
+
+    def __init__(self, items, enrich):
+        """ Main constructor of the class
+
+        :param items: original list of JSON that contains all info about a commit
+        :type items: list
+        :param enrich:
+        :type enrich: grimoire_elk.elk.enrich.Enrich
+        """
+
+        self.items = items
+        self.enrich = enrich
+
+    def _add_metadata(self, df_columns, item):
+        metadata__timestamp = item["metadata__timestamp"]
+        metadata__updated_on = item["metadata__updated_on"]
+        metadata__enriched_on = dt.utcnow().isoformat()
+
+        df_columns[Events.META_TIMESTAMP].append(metadata__timestamp)
+        df_columns[Events.META_UPDATED_ON].append(metadata__updated_on)
+        df_columns[Events.META_ENRICHED_ON].append(metadata__enriched_on)
+
+        # If called after '__add_sh_info', item will already contain
+        # 'grimoire_creation_date'
+
+        if Events.GRIMOIRE_CREATION_DATE in item:
+            creation_date = item[Events.GRIMOIRE_CREATION_DATE]
+        else:
+            creation_date = parser.parse(item['data']['AuthorDate'])
+
+        df_columns[Events.GRIMOIRE_CREATION_DATE].append(creation_date)
+
+        #TODO add other common fields as 'perceval version', 'tag', 'origin'...
+
+    def _add_general_info(self, df_columns, item):
+
+        project_item = self.enrich.get_item_project(item)
+        df_columns[Events.PROJECT].append(project_item[Events.PROJECT])
+        df_columns[Events.PROJECT_1].append(project_item[Events.PROJECT_1])
+
+    def _add_sh_info(self, df_columns, item, update_sh_db=False):
+
+        # To ensure we have procesed the entity
+        if update_sh_db:
+            identities = self.enrich.get_identities(item)
+            SortingHat.add_identities(self.enrich.sh_db, identities,
+                                      self.enrich.get_connector_name())
+
+        # Add the grimoire_creation_date to the raw item
+        # It is used for getting the right affiliation
+        item.update(self.enrich.get_grimoire_fields(
+            item["data"]["AuthorDate"], "commit"))
+        sh_identity = self.enrich.get_item_sh(item)
+
+        author_id = Events.UNKNOWN
+        author_org_name = Events.UNKNOWN
+        author_name = Events.UNKNOWN
+        author_uuid = Events.UNKNOWN
+        author_domain = Events.UNKNOWN
+        author_username = Events.UNKNOWN
+        author_bot = False
+
+        # Add SH information, if any
+        if sh_identity[Events.SH_AUTHOR_ID]:
+            author_id = sh_identity[Events.SH_AUTHOR_ID]
+
+        if sh_identity[Events.SH_AUTHOR_ORG_NAME]:
+            author_org_name = sh_identity[Events.SH_AUTHOR_ORG_NAME]
+
+        if sh_identity[Events.SH_AUTHOR_NAME]:
+            author_name = sh_identity[Events.SH_AUTHOR_NAME]
+
+        if sh_identity[Events.SH_AUTHOR_UUID]:
+            author_uuid = sh_identity[Events.SH_AUTHOR_UUID]
+
+        if sh_identity[Events.SH_AUTHOR_DOMAIN]:
+            author_domain = sh_identity[Events.SH_AUTHOR_DOMAIN]
+
+        if sh_identity[Events.SH_AUTHOR_USER_NAME]:
+            author_username = sh_identity[Events.SH_AUTHOR_USER_NAME]
+
+        if sh_identity[Events.SH_AUTHOR_BOT]:
+            author_bot = sh_identity[Events.SH_AUTHOR_BOT]
+
+        df_columns[Events.SH_AUTHOR_ID].append(author_id)
+        df_columns[Events.SH_AUTHOR_ORG_NAME].append(author_org_name)
+        df_columns[Events.SH_AUTHOR_NAME].append(author_name)
+        df_columns[Events.SH_AUTHOR_UUID].append(author_uuid)
+        df_columns[Events.SH_AUTHOR_DOMAIN].append(author_domain)
+        df_columns[Events.SH_AUTHOR_USER_NAME].append(author_username)
+        df_columns[Events.SH_AUTHOR_BOT].append(author_bot)
+
+    def _add_common_fields(self, df_columns, item):
+        self._add_metadata(df_columns, item)
+        self._add_sh_info(df_columns, item)
+        self._add_general_info(df_columns, item)
+
+    @staticmethod
+    def _add_common_events(events, df_columns):
+        events[Events.META_TIMESTAMP] = df_columns[Events.META_TIMESTAMP]
+        events[Events.META_UPDATED_ON] = df_columns[Events.META_UPDATED_ON]
+        events[Events.META_ENRICHED_ON] = df_columns[Events.META_ENRICHED_ON]
+
+        events[Events.GRIMOIRE_CREATION_DATE] = df_columns[Events.GRIMOIRE_CREATION_DATE]
+        events[Events.PROJECT] = df_columns[Events.PROJECT]
+        events[Events.PROJECT_1] = df_columns[Events.PROJECT_1]
+
+        events[Events.SH_AUTHOR_ID] = df_columns[Events.SH_AUTHOR_ID]
+        events[Events.SH_AUTHOR_ORG_NAME] = df_columns[Events.SH_AUTHOR_ORG_NAME]
+        events[Events.SH_AUTHOR_NAME] = df_columns[Events.SH_AUTHOR_NAME]
+        events[Events.SH_AUTHOR_UUID] = df_columns[Events.SH_AUTHOR_UUID]
+        events[Events.SH_AUTHOR_DOMAIN] = df_columns[Events.SH_AUTHOR_DOMAIN]
+        events[Events.SH_AUTHOR_USER_NAME] = df_columns[Events.SH_AUTHOR_USER_NAME]
+        events[Events.SH_AUTHOR_BOT] = df_columns[Events.SH_AUTHOR_BOT]
+
+
 
 class Bugzilla(Events):
     """ Class used to 'eventize' Bugzilla items
@@ -256,22 +392,47 @@ class Git(Events):
     COMMIT_MESSAGE = "message"
     COMMIT_NUM_FILES = "num_files"
     COMMIT_ADDED_LINES = "num_added_lines"
-    COMMIT_REMOVED_LINES ="num_removed_lines"
+    COMMIT_REMOVED_LINES = "num_removed_lines"
 
+    COMMIT_HASH = "hash"
 
     FILE_EVENT = "fileaction"
     FILE_PATH = "filepath"
     FILE_ADDED_LINES = "addedlines"
     FILE_REMOVED_LINES = "removedlines"
 
-    def __init__(self, items):
+    def __init__(self, items, git_enrich):
         """ Main constructor of the class
 
         :param items: original list of JSON that contains all info about a commit
         :type items: list
+        :param git_enrich:
+        :type enrich: grimoire_elk.elk.git.GitEnrich
         """
 
-        self.items = items
+        super().__init__(items=items, enrich=git_enrich)
+
+
+    def __add_commit_info(self, df_columns, item):
+
+        commit_data = item["data"]
+        repository = item["origin"]
+
+        creation_date = parser.parse(commit_data['AuthorDate'])
+
+        df_columns[Git.COMMIT_HASH].append(commit_data['commit'])
+
+        df_columns[Git.COMMIT_ID].append(commit_data['commit'])
+        df_columns[Git.COMMIT_EVENT].append(Git.EVENT_COMMIT)
+        df_columns[Git.COMMIT_DATE].append(creation_date)
+        df_columns[Git.COMMIT_OWNER].append(commit_data['Author'])
+        df_columns[Git.COMMIT_COMMITTER].append(commit_data['Commit'])
+        df_columns[Git.COMMIT_COMMITTER_DATE].append(parser.parse(commit_data['CommitDate']))
+        df_columns[Git.COMMIT_REPOSITORY].append(repository)
+        if 'message' in commit_data.keys():
+            df_columns[Git.COMMIT_MESSAGE].append(commit_data['message'])
+        else:
+            df_columns[Git.COMMIT_MESSAGE].append('')
 
 
     def eventize(self, granularity):
@@ -290,58 +451,65 @@ class Git(Events):
         :rtype: pandas.DataFrame
         """
 
+        df_columns = {}
+        # Metadata fields
+        df_columns[Git.META_TIMESTAMP] = []
+        df_columns[Git.META_UPDATED_ON] = []
+        df_columns[Git.META_ENRICHED_ON] = []
 
-        commit = {}
+        # Common fields
+        df_columns[Events.GRIMOIRE_CREATION_DATE] = []
+        df_columns[Events.PROJECT] = []
+        df_columns[Events.PROJECT_1] = []
+
+        # SortigHat information
+        df_columns[Git.SH_AUTHOR_ID] = []
+        df_columns[Git.SH_AUTHOR_ORG_NAME] = []
+        df_columns[Git.SH_AUTHOR_NAME] = []
+        df_columns[Git.SH_AUTHOR_UUID] = []
+        df_columns[Git.SH_AUTHOR_DOMAIN] = []
+        df_columns[Git.SH_AUTHOR_USER_NAME] = []
+        df_columns[Git.SH_AUTHOR_BOT] = []
+
         # First level granularity
-        commit[Git.COMMIT_ID] = []
-        commit[Git.COMMIT_EVENT] = []
-        commit[Git.COMMIT_DATE] = []
-        commit[Git.COMMIT_OWNER] = []
-        commit[Git.COMMIT_COMMITTER] = []
-        commit[Git.COMMIT_COMMITTER_DATE] = []
-        commit[Git.COMMIT_REPOSITORY] = []
-        commit[Git.COMMIT_MESSAGE] = []
-        commit[Git.COMMIT_NUM_FILES] = []
-        commit[Git.COMMIT_ADDED_LINES] = []
-        commit[Git.COMMIT_REMOVED_LINES] = []
+        df_columns[Git.COMMIT_ID] = []
+        df_columns[Git.COMMIT_EVENT] = []
+        df_columns[Git.COMMIT_DATE] = []
+        df_columns[Git.COMMIT_OWNER] = []
+        df_columns[Git.COMMIT_COMMITTER] = []
+        df_columns[Git.COMMIT_COMMITTER_DATE] = []
+        df_columns[Git.COMMIT_REPOSITORY] = []
+        df_columns[Git.COMMIT_MESSAGE] = []
+        df_columns[Git.COMMIT_NUM_FILES] = []
+        df_columns[Git.COMMIT_ADDED_LINES] = []
+        df_columns[Git.COMMIT_REMOVED_LINES] = []
+        df_columns[Git.COMMIT_HASH] = []
 
         # Second level of granularity
-        commit[Git.FILE_EVENT] = []
-        commit[Git.FILE_PATH] = []
-        commit[Git.FILE_ADDED_LINES] = []
-        commit[Git.FILE_REMOVED_LINES] = []
+        df_columns[Git.FILE_EVENT] = []
+        df_columns[Git.FILE_PATH] = []
+        df_columns[Git.FILE_ADDED_LINES] = []
+        df_columns[Git.FILE_REMOVED_LINES] = []
 
         events = pandas.DataFrame()
 
         for item in self.items:
-            repository = item["origin"]
             commit_data = item["data"]
             if granularity == 1:
-                git_keys = commit_data.keys()
-
-                commit[Git.COMMIT_ID].append(commit_data['commit'])
-                commit[Git.COMMIT_EVENT].append(Git.EVENT_COMMIT)
-                commit[Git.COMMIT_DATE].append(parser.parse(commit_data['AuthorDate']))
-                commit[Git.COMMIT_OWNER].append(commit_data['Author'])
-                commit[Git.COMMIT_COMMITTER].append(commit_data['Commit'])
-                commit[Git.COMMIT_COMMITTER_DATE].append(parser.parse(commit_data['CommitDate']))
-                commit[Git.COMMIT_REPOSITORY].append(repository)
-                if 'message' in git_keys:
-                    commit[Git.COMMIT_MESSAGE].append(commit_data['message'])
-                else:
-                    commit[Git.COMMIT_MESSAGE].append('')
+                self._add_common_fields(df_columns, item)
+                self.__add_commit_info(df_columns, item)
 
                 added_lines = 0
                 removed_lines = 0
                 files = commit_data["files"]
-                commit[Git.COMMIT_NUM_FILES] = int(len(files))
+                df_columns[Git.COMMIT_NUM_FILES] = int(len(files))
                 for f in files:
                     if "added" in f.keys() and f["added"] != "-":
                         added_lines = added_lines + int(f["added"])
                     if "removed" in f.keys() and f["removed"] != "-":
                         removed_lines = removed_lines + int(f["removed"])
-                commit[Git.COMMIT_ADDED_LINES] = added_lines
-                commit[Git.COMMIT_REMOVED_LINES] = removed_lines
+                df_columns[Git.COMMIT_ADDED_LINES] = added_lines
+                df_columns[Git.COMMIT_REMOVED_LINES] = removed_lines
 
             #TODO: this will fail if no files are found in a commit (eg: merge)
             if granularity == 2:
@@ -349,66 +517,64 @@ class Git(Events):
                 if "files" in commit_data.keys():
                     files = commit_data["files"]
                     for f in files:
-                        commit[Git.COMMIT_ID].append(commit_data['commit'])
-                        commit[Git.COMMIT_EVENT].append(Git.EVENT_COMMIT)
-                        commit[Git.COMMIT_DATE].append(parser.parse(commit_data['AuthorDate']))
-                        commit[Git.COMMIT_OWNER].append(commit_data['Author'])
-                        commit[Git.COMMIT_COMMITTER].append(commit_data['Commit'])
-                        commit[Git.COMMIT_COMMITTER_DATE].append(parser.parse(commit_data['CommitDate']))
-                        commit[Git.COMMIT_REPOSITORY].append(repository)
-                        try:
-                            commit[Git.COMMIT_MESSAGE].append(commit_data['message'])
-                        except:
-                            commit[Git.COMMIT_MESSAGE].append("")
+                        self._add_common_fields(df_columns, item)
+                        self.__add_commit_info(df_columns, item)
 
                         if "action" in f.keys():
-                            commit[Git.FILE_EVENT].append(Git.EVENT_FILE + f["action"])
+                            df_columns[Git.FILE_EVENT].append(Git.EVENT_FILE + f["action"])
                         else:
-                            commit[Git.FILE_EVENT].append("-")
+                            df_columns[Git.FILE_EVENT].append("-")
 
                         if "file" in f.keys():
-                            commit[Git.FILE_PATH].append(f["file"])
+                            df_columns[Git.FILE_PATH].append(f["file"])
                         else:
-                            commit[Git.FILE_PATH].append("-")
+                            df_columns[Git.FILE_PATH].append("-")
 
                         if "added" in f.keys():
                             if f["added"] == "-":
-                                commit[Git.FILE_ADDED_LINES].append(0)
+                                df_columns[Git.FILE_ADDED_LINES].append(0)
                             else:
-                                commit[Git.FILE_ADDED_LINES].append(int(f["added"]))
+                                df_columns[Git.FILE_ADDED_LINES].append(int(f["added"]))
                         else:
-                            commit[Git.FILE_ADDED_LINES].append(0)
+                            df_columns[Git.FILE_ADDED_LINES].append(0)
 
                         if "removed" in f.keys():
                             if f["removed"] == "-":
-                                commit[Git.FILE_REMOVED_LINES].append(0)
+                                df_columns[Git.FILE_REMOVED_LINES].append(0)
                             else:
-                                commit[Git.FILE_REMOVED_LINES].append(int(f["removed"]))
+                                df_columns[Git.FILE_REMOVED_LINES].append(int(f["removed"]))
                         else:
-                            commit[Git.FILE_REMOVED_LINES].append(0)
+                            df_columns[Git.FILE_REMOVED_LINES].append(0)
+
+                else:
+                    print("Merge found, doing nothing...")
 
             if granularity == 3:
                 #TDB
                 pass
 
+
         # Done in this way to have an order (and not a direct cast)
-        events[Git.COMMIT_ID] = commit[Git.COMMIT_ID]
-        events[Git.COMMIT_EVENT] = commit[Git.COMMIT_EVENT]
-        events[Git.COMMIT_DATE] = commit[Git.COMMIT_DATE]
-        events[Git.COMMIT_OWNER] = commit[Git.COMMIT_OWNER]
-        events[Git.COMMIT_COMMITTER] = commit[Git.COMMIT_COMMITTER]
-        events[Git.COMMIT_COMMITTER_DATE] = commit[Git.COMMIT_COMMITTER_DATE]
-        events[Git.COMMIT_REPOSITORY] = commit[Git.COMMIT_REPOSITORY]
-        events[Git.COMMIT_MESSAGE] = commit[Git.COMMIT_MESSAGE]
+        self._add_common_events(events, df_columns)
+
+        events[Git.COMMIT_ID] = df_columns[Git.COMMIT_ID]
+        events[Git.COMMIT_EVENT] = df_columns[Git.COMMIT_EVENT]
+        events[Git.COMMIT_DATE] = df_columns[Git.COMMIT_DATE]
+        events[Git.COMMIT_OWNER] = df_columns[Git.COMMIT_OWNER]
+        events[Git.COMMIT_COMMITTER] = df_columns[Git.COMMIT_COMMITTER]
+        events[Git.COMMIT_COMMITTER_DATE] = df_columns[Git.COMMIT_COMMITTER_DATE]
+        events[Git.COMMIT_REPOSITORY] = df_columns[Git.COMMIT_REPOSITORY]
+        events[Git.COMMIT_MESSAGE] = df_columns[Git.COMMIT_MESSAGE]
+        events[Git.COMMIT_HASH] = df_columns[Git.COMMIT_HASH]
         if granularity == 1:
-            events[Git.COMMIT_NUM_FILES] = commit[Git.COMMIT_NUM_FILES]
-            events[Git.COMMIT_ADDED_LINES] = commit[Git.COMMIT_ADDED_LINES]
-            events[Git.COMMIT_REMOVED_LINES] = commit [Git.COMMIT_REMOVED_LINES]
+            events[Git.COMMIT_NUM_FILES] = df_columns[Git.COMMIT_NUM_FILES]
+            events[Git.COMMIT_ADDED_LINES] = df_columns[Git.COMMIT_ADDED_LINES]
+            events[Git.COMMIT_REMOVED_LINES] = df_columns[Git.COMMIT_REMOVED_LINES]
         if granularity == 2:
-            events[Git.FILE_EVENT] = commit[Git.FILE_EVENT]
-            events[Git.FILE_PATH] = commit[Git.FILE_PATH]
-            events[Git.FILE_ADDED_LINES] = commit[Git.FILE_ADDED_LINES]
-            events[Git.FILE_REMOVED_LINES] = commit[Git.FILE_REMOVED_LINES]
+            events[Git.FILE_EVENT] = df_columns[Git.FILE_EVENT]
+            events[Git.FILE_PATH] = df_columns[Git.FILE_PATH]
+            events[Git.FILE_ADDED_LINES] = df_columns[Git.FILE_ADDED_LINES]
+            events[Git.FILE_REMOVED_LINES] = df_columns[Git.FILE_REMOVED_LINES]
 
         return events
 
@@ -477,7 +643,7 @@ class Gerrit(Events):
                 # Changeset submission date: filling a new event
                 changeset[Gerrit.CHANGESET_ID].append(changeset_data["number"])
                 changeset[Gerrit.CHANGESET_EVENT].append(Gerrit.EVENT_OPEN)
-                changeset[Gerrit.CHANGESET_DATE].append(datetime.fromtimestamp(int(changeset_data["createdOn"])))
+                changeset[Gerrit.CHANGESET_DATE].append(dt.fromtimestamp(int(changeset_data["createdOn"])))
                 changeset[Gerrit.CHANGESET_REPO].append(changeset_data["project"])
                 value = email = "notknown"
                 if "name" in changeset_data["owner"].keys():
@@ -494,7 +660,7 @@ class Gerrit(Events):
                 # Adding the closing status updates (if there was any)
                 if changeset_data["status"] == 'ABANDONED' or \
                    changeset_data["status"] == 'MERGED':
-                       closing_date = datetime.fromtimestamp(int(changeset_data["lastUpdated"]))
+                       closing_date = dt.fromtimestamp(int(changeset_data["lastUpdated"]))
                        changeset[Gerrit.CHANGESET_ID].append(changeset_data["number"])
                        changeset[Gerrit.CHANGESET_EVENT].append(Gerrit.EVENT_ + changeset_data["status"])
                        changeset[Gerrit.CHANGESET_DATE].append(closing_date)
@@ -516,7 +682,7 @@ class Gerrit(Events):
                 for patchset in changeset_data["patchSets"]:
                     changeset[Gerrit.CHANGESET_ID].append(changeset_data["number"])
                     changeset[Gerrit.CHANGESET_EVENT].append(Gerrit.EVENT_ + "PATCHSET_SENT")
-                    changeset[Gerrit.CHANGESET_DATE].append(datetime.fromtimestamp(int(patchset["createdOn"])))
+                    changeset[Gerrit.CHANGESET_DATE].append(dt.fromtimestamp(int(patchset["createdOn"])))
                     changeset[Gerrit.CHANGESET_REPO].append(changeset_data["project"])
                     try:
                         email = "patchset_noname"
@@ -539,7 +705,7 @@ class Gerrit(Events):
                                 continue
                             changeset[Gerrit.CHANGESET_ID].append(changeset_data["number"])
                             changeset[Gerrit.CHANGESET_EVENT].append(Gerrit.EVENT_ + "PATCHSET_APPROVAL_" + approval["type"])
-                            changeset[Gerrit.CHANGESET_DATE].append(datetime.fromtimestamp(int(approval["grantedOn"])))
+                            changeset[Gerrit.CHANGESET_DATE].append(dt.fromtimestamp(int(approval["grantedOn"])))
                             changeset[Gerrit.CHANGESET_REPO].append(changeset_data["project"])
                             email = "approval_noname"
                             if "name" in approval["by"].keys():
@@ -664,4 +830,3 @@ class Email(Events):
         events[Email.EMAIL_ORIGIN] = email[Email.EMAIL_ORIGIN]
 
         return events
-

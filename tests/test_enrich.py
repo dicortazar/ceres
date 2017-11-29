@@ -28,7 +28,7 @@ import unittest
 if not '..' in sys.path:
     sys.path.insert(0, '..')
 
-from enrich.enrich import PairProgramming, TimeDifference, Uuid
+from enrich.enrich import PairProgramming, TimeDifference, Uuid, FilePath
 
 from df_utils.format import Format
 
@@ -95,6 +95,55 @@ class TestEnrich(unittest.TestCase):
         enriched_df = time.enrich("date_author", "date_committer")
 
         self.assertEqual(len(enriched_df[enriched_df["timedifference"] > 0]), 4)
+
+    def test_FilePath(self):
+        """ Test FilePath enricher"""
+
+        # Empty test
+        empty_df = pandas.DataFrame()
+        filepath = FilePath(empty_df)
+        enriched_df = filepath.enrich('filepath')
+        self.assertTrue(enriched_df.empty)
+
+        #
+        test_df = pandas.DataFrame()
+        file_1 = {}
+        file_2 = {}
+        file_3 = {}
+        file_1['filepath'] = 'file.txt'
+        file_1['file_name'] = 'file.txt'
+        file_1['file_ext'] = 'txt'
+        file_1['file_dir_name'] = ''
+        file_1['path_list'] = ['file.txt']
+        file_2['filepath'] = '/foo/bar'
+        file_2['file_name'] = 'bar'
+        file_2['file_ext'] = ''
+        file_2['file_dir_name'] = '/foo/'
+        file_2['path_list'] = ['foo', 'bar']
+        file_3['filepath'] = '/foo/bar/file.txt'
+        file_3['file_name'] = 'file.txt'
+        file_3['file_ext'] = 'txt'
+        file_3['file_dir_name'] = '/foo/bar/'
+        file_3['path_list'] = ['foo', 'bar', 'file.txt']
+        test_df['filepath'] = [file_1['filepath'], file_2['filepath'],
+                               file_3['filepath']]
+        filepath = FilePath(test_df)
+        enriched_df = filepath.enrich('filepath')
+        self.assertEqual(enriched_df.iloc[[0]]['filepath'].item(), file_1['filepath'])
+        self.assertEqual(enriched_df.iloc[[1]]['filepath'].item(), file_2['filepath'])
+        self.assertEqual(enriched_df.iloc[[2]]['filepath'].item(), file_3['filepath'])
+        self.assertEqual(enriched_df.iloc[[0]]['file_name'].item(), file_1['file_name'])
+        self.assertEqual(enriched_df.iloc[[1]]['file_name'].item(), file_2['file_name'])
+        self.assertEqual(enriched_df.iloc[[2]]['file_name'].item(), file_3['file_name'])
+        self.assertEqual(enriched_df.iloc[[0]]['file_ext'].item(), file_1['file_ext'])
+        self.assertEqual(enriched_df.iloc[[1]]['file_ext'].item(), file_2['file_ext'])
+        self.assertEqual(enriched_df.iloc[[2]]['file_ext'].item(), file_3['file_ext'])
+        self.assertEqual(enriched_df.iloc[[0]]['file_dir_name'].item(), file_1['file_dir_name'])
+        self.assertEqual(enriched_df.iloc[[1]]['file_dir_name'].item(), file_2['file_dir_name'])
+        self.assertEqual(enriched_df.iloc[[2]]['file_dir_name'].item(), file_3['file_dir_name'])
+        self.assertEqual(enriched_df.iloc[[0]]['path_list'].item(), file_1['path_list'])
+        self.assertEqual(enriched_df.iloc[[1]]['path_list'].item(), file_2['path_list'])
+        self.assertEqual(enriched_df.iloc[[2]]['path_list'].item(), file_3['path_list'])
 
 
     def test_Uuid(self):

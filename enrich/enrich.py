@@ -128,8 +128,64 @@ class FileType(Enrich):
 
         # Insert 'Code' only in those rows that are
         # detected as being source code thanks to its extension
-        reg = "\.c$|\.h$|\.cc$|\.cpp$|\.cxx$|\.c\+\+$|\.cp$|\.py$|\.js$|\.java$"
+        reg = "\.c$|\.h$|\.cc$|\.cpp$|\.cxx$|\.c\+\+$|\.cp$|\.py$|\.js$|\.java$|\.rs$"
         self.data.loc[self.data[column].str.contains(reg)==True, 'filetype'] = 'Code'
+
+        return self.data
+
+class FilePath(Enrich):
+    """ This class creates new columns with:
+            * File extension
+            * File path (excluding file name)
+            * File name (excluding directories)
+    """
+
+    def __init__(self, data):
+        """ Main constructor of the class where the original dataframe
+        is provided
+
+        :param data: original dataframe
+        : type data: pandas.DataFrame
+        """
+
+        self.data = data
+
+    def enrich(self, column):
+        """ This method splits file path in new columns allowing further
+        filtering on those particular path parts:
+            * File extension
+            * File directory name (full path excluding file name)
+            * File name (excluding directories)
+            * Path list including each directory/file as a separated element
+
+        :param column: column where the file path is found
+        :type column: string
+
+        :return: returns the original dataframe with new columns named
+                 'file_ext', 'file_dir_name', 'file_name', 'path_list'
+        :rtype: pandas.DataFrame
+        """
+
+        if column not in self.data:
+            return self.data
+
+        # Insert new columns
+        self.data['file_name'] = \
+            self.data.apply(lambda row: row[column][row[column].rfind('/') + 1:],
+                            axis=1)
+        self.data['file_ext'] = \
+            self.data.apply(lambda row:
+                            '' if (row.file_name.rfind('.') == -1)
+                            else row.file_name[row.file_name.rfind('.') + 1:],
+                            axis=1)
+        self.data['file_dir_name'] = \
+            self.data.apply(lambda row: row[column][:row[column].rfind('/') + 1],
+                            axis=1)
+
+        self.data['file_path_list'] = \
+            self.data.apply(lambda row: [x for x in row[column].split('/')
+                                         if x is not ''],
+                            axis=1)
 
         return self.data
 
