@@ -21,16 +21,16 @@
 
 import os
 import pandas
-import scipy
 import sys
 import unittest
 
-if not '..' in sys.path:
+if '..' not in sys.path:
     sys.path.insert(0, '..')
 
 from enrich.enrich import PairProgramming, TimeDifference, Uuid, FilePath
 
 from df_utils.format import Format
+
 
 class TestEnrich(unittest.TestCase):
     """ Unit tests for Enrich classes
@@ -48,13 +48,13 @@ class TestEnrich(unittest.TestCase):
         # With empty dataframe and any columns, this always returns empty dataframe
         # A DataFrame with columns but not data is an empty DataFrame
         pair = PairProgramming(empty_df)
-        self.assertTrue(pair.enrich("test1","test2").empty)
+        self.assertTrue(pair.enrich("test1", "test2").empty)
         # With a dataframe with some data, this returns a non-empty dataframe
 
         csv_df = pandas.read_csv(os.path.join(self.__enrich_dir,
                                               "pairprogramming.csv"))
         pair = PairProgramming(csv_df)
-        enriched_df = pair.enrich("test1","test2")
+        enriched_df = pair.enrich("test1", "test2")
         self.assertFalse(enriched_df.empty)
         # Expected to return the same df as test1 and test2 do not exist
         self.assertEqual(len(enriched_df), 7)
@@ -68,7 +68,6 @@ class TestEnrich(unittest.TestCase):
         self.assertFalse(enriched_df.empty)
         # Expected to add a new entry at the end of the dataframe
         self.assertEqual(len(enriched_df), 8)
-
 
     def test_TimeDifference(self):
         """ Several test cases for the TimeDifference class
@@ -110,6 +109,9 @@ class TestEnrich(unittest.TestCase):
         file_1 = {}
         file_2 = {}
         file_3 = {}
+        file_4 = {}
+        file_5 = {}
+        file_6 = {}
         file_1['filepath'] = 'file.txt'
         file_1['file_name'] = 'file.txt'
         file_1['file_ext'] = 'txt'
@@ -125,26 +127,56 @@ class TestEnrich(unittest.TestCase):
         file_3['file_ext'] = 'txt'
         file_3['file_dir_name'] = '/foo/bar/'
         file_3['file_path_list'] = ['foo', 'bar', 'file.txt']
+        file_4['filepath'] = '/foo/bar/'
+        file_4['file_name'] = ''
+        file_4['file_ext'] = ''
+        file_4['file_dir_name'] = '/foo/bar/'
+        file_4['file_path_list'] = ['foo', 'bar']
+        file_5['filepath'] = '/foo//bar.txt'
+        file_5['file_name'] = 'bar.txt'
+        file_5['file_ext'] = 'txt'
+        file_5['file_dir_name'] = '/foo/'
+        file_5['file_path_list'] = ['foo', 'bar.txt']
+        file_6['filepath'] = '//foo///bar.txt'
+        file_6['file_name'] = 'bar.txt'
+        file_6['file_ext'] = 'txt'
+        file_6['file_dir_name'] = '/foo/'
+        file_6['file_path_list'] = ['foo', 'bar.txt']
         test_df['filepath'] = [file_1['filepath'], file_2['filepath'],
-                               file_3['filepath']]
+                               file_3['filepath'], file_4['filepath'],
+                               file_5['filepath'], file_6['filepath']]
         filepath = FilePath(test_df)
         enriched_df = filepath.enrich('filepath')
         self.assertEqual(enriched_df.iloc[[0]]['filepath'].item(), file_1['filepath'])
         self.assertEqual(enriched_df.iloc[[1]]['filepath'].item(), file_2['filepath'])
         self.assertEqual(enriched_df.iloc[[2]]['filepath'].item(), file_3['filepath'])
+        self.assertEqual(enriched_df.iloc[[3]]['filepath'].item(), file_4['filepath'])
+        self.assertEqual(enriched_df.iloc[[4]]['filepath'].item(), file_5['filepath'])
+        self.assertEqual(enriched_df.iloc[[5]]['filepath'].item(), file_6['filepath'])
         self.assertEqual(enriched_df.iloc[[0]]['file_name'].item(), file_1['file_name'])
         self.assertEqual(enriched_df.iloc[[1]]['file_name'].item(), file_2['file_name'])
         self.assertEqual(enriched_df.iloc[[2]]['file_name'].item(), file_3['file_name'])
+        self.assertEqual(enriched_df.iloc[[3]]['file_name'].item(), file_4['file_name'])
+        self.assertEqual(enriched_df.iloc[[4]]['file_name'].item(), file_5['file_name'])
+        self.assertEqual(enriched_df.iloc[[5]]['file_name'].item(), file_6['file_name'])
         self.assertEqual(enriched_df.iloc[[0]]['file_ext'].item(), file_1['file_ext'])
         self.assertEqual(enriched_df.iloc[[1]]['file_ext'].item(), file_2['file_ext'])
         self.assertEqual(enriched_df.iloc[[2]]['file_ext'].item(), file_3['file_ext'])
+        self.assertEqual(enriched_df.iloc[[3]]['file_ext'].item(), file_4['file_ext'])
+        self.assertEqual(enriched_df.iloc[[4]]['file_ext'].item(), file_5['file_ext'])
+        self.assertEqual(enriched_df.iloc[[5]]['file_ext'].item(), file_6['file_ext'])
         self.assertEqual(enriched_df.iloc[[0]]['file_dir_name'].item(), file_1['file_dir_name'])
         self.assertEqual(enriched_df.iloc[[1]]['file_dir_name'].item(), file_2['file_dir_name'])
         self.assertEqual(enriched_df.iloc[[2]]['file_dir_name'].item(), file_3['file_dir_name'])
+        self.assertEqual(enriched_df.iloc[[3]]['file_dir_name'].item(), file_4['file_dir_name'])
+        self.assertEqual(enriched_df.iloc[[4]]['file_dir_name'].item(), file_5['file_dir_name'])
+        self.assertEqual(enriched_df.iloc[[5]]['file_dir_name'].item(), file_6['file_dir_name'])
         self.assertEqual(enriched_df.iloc[[0]]['file_path_list'].item(), file_1['file_path_list'])
         self.assertEqual(enriched_df.iloc[[1]]['file_path_list'].item(), file_2['file_path_list'])
         self.assertEqual(enriched_df.iloc[[2]]['file_path_list'].item(), file_3['file_path_list'])
-
+        self.assertEqual(enriched_df.iloc[[3]]['file_path_list'].item(), file_4['file_path_list'])
+        self.assertEqual(enriched_df.iloc[[4]]['file_path_list'].item(), file_5['file_path_list'])
+        self.assertEqual(enriched_df.iloc[[5]]['file_path_list'].item(), file_6['file_path_list'])
 
     def test_Uuid(self):
         """ Test several cases for the Uuid class

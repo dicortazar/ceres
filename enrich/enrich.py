@@ -27,6 +27,7 @@ import numpy as np
 
 import re
 
+
 class Enrich(object):
     """ Class that enriches information for a given dataset.
 
@@ -84,7 +85,7 @@ class PairProgramming(Enrich):
 
         # Select rows where values in column1 are different from
         # values in column2
-        pair_df = self.commits[self.commits[column1]!=self.commits[column2]]
+        pair_df = self.commits[self.commits[column1] != self.commits[column2]]
         new_values = list(pair_df[column2])
         # Update values from column2
         pair_df[column1] = new_values
@@ -129,9 +130,10 @@ class FileType(Enrich):
         # Insert 'Code' only in those rows that are
         # detected as being source code thanks to its extension
         reg = "\.c$|\.h$|\.cc$|\.cpp$|\.cxx$|\.c\+\+$|\.cp$|\.py$|\.js$|\.java$|\.rs$"
-        self.data.loc[self.data[column].str.contains(reg)==True, 'filetype'] = 'Code'
+        self.data.loc[self.data[column].str.contains(reg), 'filetype'] = 'Code'
 
         return self.data
+
 
 class FilePath(Enrich):
     """ This class creates new columns with:
@@ -178,14 +180,24 @@ class FilePath(Enrich):
                             '' if (row.file_name.rfind('.') == -1)
                             else row.file_name[row.file_name.rfind('.') + 1:],
                             axis=1)
+        # To get correct dir name:
+        # *  Replace multiple consecutive slashes by just one
+        self.data['file_dir_name'] = self.data[column].str.replace('/+', '/')
         self.data['file_dir_name'] = \
-            self.data.apply(lambda row: row[column][:row[column].rfind('/') + 1],
+            self.data.apply(lambda row:
+                            row.file_dir_name[:row.file_dir_name.rfind('/') + 1],
                             axis=1)
 
-        self.data['file_path_list'] = \
-            self.data.apply(lambda row: [x for x in row[column].split('/')
-                                         if x is not ''],
-                            axis=1)
+        # Clean filepath for splitting path parts:
+        # * Replace multiple consecutive slashes by just one
+        # * Remove leading slash if any, to avoid str.split to add an empty
+        #   string to the resulting list of slices
+        # * Remove trailing slash if any, to avoid str.split to add an empty
+        #   string to the resulting list of slices
+        self.data['file_path_list'] = self.data[column].str.replace('/+', '/')
+        self.data['file_path_list'] = self.data.file_path_list.str.replace('^/', '')
+        self.data['file_path_list'] = self.data.file_path_list.str.replace('/$', '')
+        self.data['file_path_list'] = self.data.file_path_list.str.split('/')
 
         return self.data
 
@@ -225,16 +237,15 @@ class Projects(Enrich):
 
         return self.data
 
+
 class MessageLogFlag(Enrich):
     """ This class adds specific events for the
     given message log body
     """
 
-    FLAGS_REGEX = {'Patch by Blink' : '\s*Patch by (?P<value>.+)$',
-                   'Patch by WebKit' : '\s*Patch by (?P<value>.+) on .+$',
-                   'Reviewed by WebKit': '\s*Reviewed by (?P<value>.+) on .+$'
-                  }
-
+    FLAGS_REGEX = {'Patch by Blink': '\s*Patch by (?P<value>.+)$',
+                   'Patch by WebKit': '\s*Patch by (?P<value>.+) on .+$',
+                   'Reviewed by WebKit': '\s*Reviewed by (?P<value>.+) on .+$'}
 
     def __parse_flags(self, body):
         """Parse flags from a message"""
@@ -261,7 +272,6 @@ class MessageLogFlag(Enrich):
 
         return flags, values
 
-
     def __init__(self, data):
 
         """ Main constructor of the class where the original dataframe
@@ -272,7 +282,6 @@ class MessageLogFlag(Enrich):
         """
 
         self.data = data
-
 
     def enrich(self, column):
         """ This method helps to identify flags in the message log.
@@ -295,7 +304,7 @@ class MessageLogFlag(Enrich):
 
         flags_list = []
         values_list = []
-        #Assuming the index of the dataframe is an integer
+        # Assuming the index of the dataframe is an integer
         for i in list(range(len(self.data))):
             flags, values = self.__parse_flags(self.data[column][i])
             flags_list.append(flags)
@@ -313,17 +322,16 @@ class EmailFlag(Enrich):
     """
 
     FLAGS_REGEX = {
-                'Acked-by' : '^Acked-by:(?P<value>.+)$',
-                   'Cc' : '^Cc:(?P<value>.+)',
-                   'Fixes' : '^Fixes:(?P<value>.+)$',
-                   'From' : '^[Ff]rom:(?P<value>.+)$',
-                   'Reported-by' : '^Reported-by:(?P<value>.+)$',
-                   'Tested-by' : '^Tested-by:(?P<value>.+)$',
-                   'Reviewed-by' : '^Reviewed-by:(?P<value>.+)$',
-                   'Release-Acked-by' : '^Release-Acked-by:(?P<value>.+)$',
-                   'Signed-off-by' : '^Signed-off-by:(?P<value>.+)$',
-                   'Suggested-by' : '^Suggested-by:(?P<value>.+)$',
-                   }
+        'Acked-by': '^Acked-by:(?P<value>.+)$',
+        'Cc': '^Cc:(?P<value>.+)',
+        'Fixes': '^Fixes:(?P<value>.+)$',
+        'From': '^[Ff]rom:(?P<value>.+)$',
+        'Reported-by': '^Reported-by:(?P<value>.+)$',
+        'Tested-by': '^Tested-by:(?P<value>.+)$',
+        'Reviewed-by': '^Reviewed-by:(?P<value>.+)$',
+        'Release-Acked-by': '^Release-Acked-by:(?P<value>.+)$',
+        'Signed-off-by': '^Signed-off-by:(?P<value>.+)$',
+        'Suggested-by': '^Suggested-by:(?P<value>.+)$'}
 
     def __parse_flags(self, body):
         """Parse flags from a message"""
@@ -376,7 +384,7 @@ class EmailFlag(Enrich):
 
         flags_list = []
         values_list = []
-        #Assuming the index of the dataframe is an integer
+        # Assuming the index of the dataframe is an integer
         for i in list(range(len(self.data))):
             flags, values = self.__parse_flags(self.data[column][i])
             flags_list.append(flags)
@@ -386,6 +394,7 @@ class EmailFlag(Enrich):
         self.data["values"] = values_list
 
         return self.data
+
 
 class SplitEmailDomain(Enrich):
     """ This class returns a new column with the domain of the email
@@ -398,9 +407,8 @@ class SplitEmailDomain(Enrich):
 
         try:
             return email.split('@')[1]
-        except:
+        except Exception:
             return "unknown"
-
 
     def __init__(self, data):
 
@@ -491,6 +499,7 @@ class ToUTF8(Enrich):
             self.data[column] = a
 
         return self.data
+
 
 class SplitEmail(Enrich):
     """ This class split the tuple 'name <email>' into 'name' and 'email'.
@@ -595,10 +604,10 @@ class SplitLists(Enrich):
                 for column in columns:
                     df[column] = self.data.loc[count, column]
                 # Repeat the original rows N times
-                extra_df = pandas.DataFrame([self.data.loc[count]]*len(df))
+                extra_df = pandas.DataFrame([self.data.loc[count]] * len(df))
                 for column in columns:
                     extra_df[column] = list(df[column])
-                append_df = append_df.append(extra_df, ignore_index = True)
+                append_df = append_df.append(extra_df, ignore_index=True)
                 extra_df = pandas.DataFrame()
 
             count = count + 1
@@ -640,12 +649,12 @@ class MaxMin(Enrich):
         for column in columns:
             df_grouped = self.data.groupby([groupby]).agg({column: 'max'})
             df_grouped = df_grouped.reset_index()
-            df_grouped.rename(columns={column:'max_'+column}, inplace=True)
+            df_grouped.rename(columns={column: 'max_' + column}, inplace=True)
             self.data = pandas.merge(self.data, df_grouped, how='left', on=[groupby])
 
             df_grouped = self.data.groupby([groupby]).agg({column: 'min'})
             df_grouped = df_grouped.reset_index()
-            df_grouped.rename(columns={column:'min_'+column}, inplace=True)
+            df_grouped.rename(columns={column: 'min_' + column}, inplace=True)
             self.data = pandas.merge(self.data, df_grouped, how='left', on=[groupby])
 
         return self.data
@@ -655,7 +664,6 @@ class Gender(Enrich):
     """ This class creates three new columns with the gender of
     the name provided
     """
-
 
     def __init__(self, data, key=None, gender_file=None):
         """ Main constructor of the class where the original dataframe
@@ -672,7 +680,7 @@ class Gender(Enrich):
         from genderize import Genderize
 
         self.data = data
-        self.gender = {} # init the name-gender dictionary
+        self.gender = {}  # init the name-gender dictionary
         self.key = key
         self.gender_file = gender_file
 
@@ -687,12 +695,12 @@ class Gender(Enrich):
             fd = open(gender_file, "r")
             lines = fd.readlines()
             fd.close()
-            #TODO: fix hardcoded code when reading columns and using
+            # TODO: fix hardcoded code when reading columns and using
             #      separators
             for line in lines:
                 gender_data = line.split("\t")
-                self.gender[gender_data[1]] = {"gender_analyzed_name":gender_data[1],
-                                                "gender":gender_data[2]}
+                self.gender[gender_data[1]] = {"gender_analyzed_name": gender_data[1],
+                                               "gender": gender_data[2]}
 
     def enrich(self, column):
         """ This method calculates thanks to the genderize.io API the gender
@@ -735,21 +743,25 @@ class Gender(Enrich):
                 gender_result = self.gender[name]
             else:
                 try:
-                    #TODO: some errors found due to encode utf-8 issues.
-                    #Adding a try-except in the meantime.
+                    # TODO: some errors found due to encode utf-8 issues.
+                    # Adding a try-except in the meantime.
                     gender_result = self.connection.get([name])[0]
-                except:
+                except Exception:
                     continue
 
-                #Store info in the list of users
+                # Store info in the list of users
                 self.gender[name] = gender_result
 
-            #Update current dataset
-            if gender_result["gender"] is None: gender_result["gender"] = "NotKnown"
-            self.data.loc[self.data["gender_analyzed_name"]==name, 'gender'] = gender_result["gender"]
+            # Update current dataset
+            if gender_result["gender"] is None:
+                gender_result["gender"] = "NotKnown"
+            self.data.loc[self.data["gender_analyzed_name"] == name, 'gender'] =\
+                gender_result["gender"]
             if "probability" in gender_result.keys():
-                self.data.loc[self.data["gender_analyzed_name"]==name, 'gender_probability'] = gender_result["probability"]
-                self.data.loc[self.data["gender_analyzed_name"]==name, 'gender_count'] = gender_result["count"]
+                self.data.loc[self.data["gender_analyzed_name"] == name,
+                              'gender_probability'] = gender_result["probability"]
+                self.data.loc[self.data["gender_analyzed_name"] == name,
+                              'gender_count'] = gender_result["count"]
 
         self.data.fillna("noname")
         return self.data
@@ -794,13 +806,13 @@ class TimeDifference(Enrich):
         self.data["timedifference"] = (self.data[column2] - self.data[column1]) / np.timedelta64(1, 's')
         return self.data
 
+
 class Uuid(Enrich):
     """ This class adds new columns with the uuid of a given identity. If more
     not common columns (those not used to decide how to merge rows) are
     provided together with the uuid within the CSV file, all of them will also
     be merged in the resulting dataframe.
     """
-
 
     def __init__(self, data, file_path='data/uuids.csv',
                  drop_columns=[], drop_duplicates=[]):
