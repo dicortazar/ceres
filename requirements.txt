@@ -10,4 +10,4 @@ pytz==2016.10
 scipy==0.19.0
 six==1.10.0
 sortinghat==0.4.3
-urllib3==1.21.1
+urllib3==1.24.2
