@@ -51,6 +51,7 @@ class Events(object):
     SH_AUTHOR_DOMAIN = "author_domain"
     SH_AUTHOR_USER_NAME = "author_user_name"
     SH_AUTHOR_BOT = "author_bot"
+    SH_AUTHOR_MULTI_ORG_NAMES = "author_multi_org_names"
 
     UNKNOWN = 'Unknown'
 
@@ -117,6 +118,7 @@ class Events(object):
         author_domain = sh_identity.get(Events.SH_AUTHOR_DOMAIN, Events.UNKNOWN)
         author_username = sh_identity.get(Events.SH_AUTHOR_USER_NAME, Events.UNKNOWN)
         author_bot = sh_identity.get(Events.SH_AUTHOR_BOT, False)
+        author_multi_org_names = sh_identity.get(Events.SH_AUTHOR_MULTI_ORG_NAMES, [Events.UNKNOWN])
 
         df_columns[Events.SH_AUTHOR_ID].append(author_id)
         df_columns[Events.SH_AUTHOR_ORG_NAME].append(author_org_name)
@@ -125,6 +127,7 @@ class Events(object):
         df_columns[Events.SH_AUTHOR_DOMAIN].append(author_domain)
         df_columns[Events.SH_AUTHOR_USER_NAME].append(author_username)
         df_columns[Events.SH_AUTHOR_BOT].append(author_bot)
+        df_columns[Events.SH_AUTHOR_MULTI_ORG_NAMES].append(author_multi_org_names)
 
     def _init_common_fields(self, df_columns):
         # Metadata fields
@@ -146,6 +149,7 @@ class Events(object):
         df_columns[Events.SH_AUTHOR_DOMAIN] = []
         df_columns[Events.SH_AUTHOR_USER_NAME] = []
         df_columns[Events.SH_AUTHOR_BOT] = []
+        df_columns[Events.SH_AUTHOR_MULTI_ORG_NAMES] = []
 
     def _add_common_fields(self, df_columns, item):
         self._add_metadata(df_columns, item)
@@ -171,6 +175,7 @@ class Events(object):
         events[Events.SH_AUTHOR_DOMAIN] = df_columns[Events.SH_AUTHOR_DOMAIN]
         events[Events.SH_AUTHOR_USER_NAME] = df_columns[Events.SH_AUTHOR_USER_NAME]
         events[Events.SH_AUTHOR_BOT] = df_columns[Events.SH_AUTHOR_BOT]
+        events[Events.SH_AUTHOR_MULTI_ORG_NAMES] = df_columns[Events.SH_AUTHOR_MULTI_ORG_NAMES]
 
 
 class Bugzilla(Events):
