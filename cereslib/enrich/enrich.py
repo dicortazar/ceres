@@ -257,9 +257,9 @@ class MessageLogFlag(Enrich):
         flags = []
         values = []
         lines = body.split('\n')
-        for l in lines:
+        for line in lines:
             for name in self.FLAGS_REGEX:
-                m = re.match(self.FLAGS_REGEX[name], l)
+                m = re.match(self.FLAGS_REGEX[name], line)
 
                 if m:
                     flags.append(name)
@@ -343,9 +343,9 @@ class EmailFlag(Enrich):
         flags = []
         values = []
         lines = body.split('\n')
-        for l in lines:
+        for line in lines:
             for name in self.FLAGS_REGEX:
-                m = re.match(self.FLAGS_REGEX[name], l)
+                m = re.match(self.FLAGS_REGEX[name], line)
 
                 if m:
                     flags.append(name)
