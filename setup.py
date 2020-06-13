@@ -65,7 +65,7 @@ setup(name="cereslib",
       ],
       install_requires=[
           'grimoire-elk>=0.30.23',
-          'numpy',
+          'numpy<=1.18.3',
           'scipy',
           'six'
       ],

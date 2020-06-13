@@ -1,4 +1,4 @@
-numpy
+numpy<=1.18.3
 scipy
 six
 -e git+https://github.com/chaoss/grimoirelab-elk/#egg=grimoirelab-elk
