@@ -54,6 +54,21 @@ class TestFormat(unittest.TestCase):
 
         self.assertFalse(Format().fill_missing_fields(df, empty_columns).empty)
 
+    def test_update_field_names(self):
+        """Test several cases for the update_field_names method
+        """
+
+        columns = ["test1", "test2"]
+        new_columns = ["new_test1", "new_test2"]
+        matching = dict(zip(columns, new_columns))
+        df = pandas.DataFrame()
+        for test in columns:
+            df[test] = scipy.zeros(10)
+
+        self.assertEqual(new_columns, Format().update_field_names(df, matching).columns.tolist())
+        # Expected to return True as the dataframe's columns' names have been renamed
+        self.assertNotEqual(columns, Format().update_field_names(df, matching).columns.tolist())
+
 
 if __name__ == '__main__':
     unittest.main()
